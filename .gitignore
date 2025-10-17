@@ -1,0 +1,6 @@
+.env
+__pycache__/
+.DS_Store
+out/
+inbox/
+Acme_Sales_2025 w prices (1) (1).xlsx

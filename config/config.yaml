@@ -1,0 +1,40 @@
+# MobiWork API Documentation
+# Reference: https://help.mobiwork.com/online-help/mws/en/features/connectors/inbound-rest-api/overview/introduction.html
+
+# thresholds for Service Level Tier based on AVERAGE MONTHLY spend ($)
+# Calculated from 3-month total spend / 3
+# Tier 1: $850+/mo → Monthly visits
+# Tier 2: $600-$849/mo → Bi-Monthly visits
+# Tier 3: $300-$599/mo → Quarterly visits
+# Tier 4: $0-$299/mo → Annually visits
+sla_thresholds:
+  tier1: 850
+  tier2: 600
+  tier3: 300
+
+# how Service Level Tier maps to visit cadence
+visit_map:
+  Tier 1: Monthly
+  Tier 2: Bi-Monthly
+  Tier 3: Quarterly
+  Tier 4: Annually
+
+# number of SKUs to include per customer in the repeating panel
+top_n: 10
+
+# try to parse months as this year if sheet headers are Jan..Dec
+year_hint: 2025
+
+# optional lookups (paths relative to project root)
+customer_map: config/customer_map.csv
+sku_aliases: config/sku_aliases.csv
+expected_qty: config/expected_qty.csv
+
+# sku variant groups let us aggregate related SKUs (e.g., package sizes) when computing summary metrics
+sku_variant_groups:
+  E69:
+    - E69
+    - E69 5
+    - E69 G
+    - E69-5
+    - E69-G
