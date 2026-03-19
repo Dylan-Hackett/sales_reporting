@@ -151,8 +151,10 @@ FIELD_META = {
     "ReportMonth": (FIELD_TEXT, "Report Month"),
     "TotalSales": (FIELD_TEXT, "Total Sales"),
     "TotalUnits": (FIELD_NUMBER, "Total Units"),
-    "SKUCode": (FIELD_TEXT, "SKU Code"),
 }
+# Individual SKU fields (TopSKU1 through TopSKU10)
+for _i in range(1, 11):
+    FIELD_META[f"TopSKU{_i}"] = (FIELD_TEXT, f"Top SKU #{_i}")
 
 
 def build_form_xml(filled_form_id, snapshot_row, sku_rows, sku_sales_rows=None, top_n=10, customer_id=None):
@@ -168,13 +170,15 @@ def build_form_xml(filled_form_id, snapshot_row, sku_rows, sku_sales_rows=None, 
     """
     fields = []
 
-    def add_field(api_name, value, index=0):
+    def add_field(api_name, value, index=0, label_override=None):
         if value is None:
             return
         value_str = str(value).strip()
         if value_str == "" or value_str == "nan":
             return
         field_type, label = FIELD_META.get(api_name, (FIELD_TEXT, api_name))
+        if label_override:
+            label = label_override
         fields.append(f"""    <formField>
       <fieldType>{field_type}</fieldType>
       <apiName>{api_name}</apiName>
@@ -202,7 +206,7 @@ def build_form_xml(filled_form_id, snapshot_row, sku_rows, sku_sales_rows=None, 
             total_units = int(sku_rows[qty_col].sum())
     add_field("TotalUnits", total_units)
 
-    # --- Repeating SKU Detail panel (single formatted line per SKU) ---
+    # --- Individual SKU fields (TopSKU1 through TopSKU10) ---
     # Build a sales $ lookup by vendor_item if we have SKU sales data
     sku_sales_map = {}
     if sku_sales_rows is not None and not sku_sales_rows.empty:
@@ -212,19 +216,16 @@ def build_form_xml(filled_form_id, snapshot_row, sku_rows, sku_sales_rows=None, 
                 sku_sales_map[sr.get("vendor_item", "")] = sr[last_month_col]
 
     if sku_rows is not None and not sku_rows.empty:
-        for idx, (_, row) in enumerate(sku_rows.head(top_n).iterrows()):
+        for rank, (_, row) in enumerate(sku_rows.head(top_n).iterrows()):
             vendor_item = row.get("vendor_item", "")
-            # Sales $
             sku_sale = sku_sales_map.get(vendor_item, 0)
             if not sku_sale or pd.isna(sku_sale):
                 sku_sale = 0
             sale_str = f"${float(sku_sale):,.2f}"
-            # Qty
             qty_raw = row.get("last_month_qty", 0)
             qty_str = _fmt_int(qty_raw) if not pd.isna(qty_raw) else "0"
-            # Single formatted line: E65-G | $492.84 | 9 units
             line = f"{vendor_item} | {sale_str} | {qty_str} units"
-            add_field("SKUCode", line, idx)
+            add_field(f"TopSKU{rank + 1}", line)
 
     fields_block = "\n".join(fields)
     customer_block = ""
