@@ -222,9 +222,10 @@ def build_form_xml(filled_form_id, snapshot_row, sku_rows, sku_sales_rows=None, 
             if not sku_sale or pd.isna(sku_sale):
                 sku_sale = 0
             sale_str = f"${float(sku_sale):,.2f}"
-            qty_raw = row.get("last_month_qty", 0)
-            qty_str = _fmt_int(qty_raw) if not pd.isna(qty_raw) else "0"
-            line = f"{vendor_item} | {sale_str} | {qty_str} units"
+            # Use 3-month avg qty (matches ranking order) instead of last month
+            qty_raw = row.get("avg_qty_3m", row.get("last_month_qty", 0))
+            qty_str = _fmt_qty(qty_raw) if not pd.isna(qty_raw) else "0"
+            line = f"{vendor_item} | {sale_str} | {qty_str} units/mo"
             add_field(f"TopSKU{rank + 1}", line)
 
     fields_block = "\n".join(fields)
