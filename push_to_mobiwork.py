@@ -207,13 +207,19 @@ def build_form_xml(filled_form_id, snapshot_row, sku_rows, sku_sales_rows=None, 
     add_field("TotalUnits", total_units)
 
     # --- Individual SKU fields (TopSKU1 through TopSKU10) ---
-    # Build a sales $ lookup by vendor_item if we have SKU sales data
+    # Build a 3-month avg sales $ lookup by vendor_item
     sku_sales_map = {}
     if sku_sales_rows is not None and not sku_sales_rows.empty:
-        last_month_col = snapshot_row.get("report_month", "")
-        if last_month_col in sku_sales_rows.columns:
-            for _, sr in sku_sales_rows.iterrows():
-                sku_sales_map[sr.get("vendor_item", "")] = sr[last_month_col]
+        # Get the last 3 month columns that exist in the data
+        month_cols = [c for c in sku_sales_rows.columns
+                      if c not in ("location_code", "chain", "mobi_customer_id",
+                                   "vendor_item", "item_description")]
+        last_3 = month_cols[-3:] if len(month_cols) >= 3 else month_cols
+        for _, sr in sku_sales_rows.iterrows():
+            vals = [sr.get(c, 0) for c in last_3]
+            vals = [float(v) for v in vals if v and not pd.isna(v)]
+            avg_sale = sum(vals) / len(vals) if vals else 0
+            sku_sales_map[sr.get("vendor_item", "")] = avg_sale
 
     if sku_rows is not None and not sku_rows.empty:
         for rank, (_, row) in enumerate(sku_rows.head(top_n).iterrows()):
