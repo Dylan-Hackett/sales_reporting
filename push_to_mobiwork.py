@@ -215,10 +215,11 @@ def build_form_xml(filled_form_id, snapshot_row, sku_rows, sku_sales_rows=None, 
                       if c not in ("location_code", "chain", "mobi_customer_id",
                                    "vendor_item", "item_description")]
         last_3 = month_cols[-3:] if len(month_cols) >= 3 else month_cols
+        n_months = len(last_3)
         for _, sr in sku_sales_rows.iterrows():
-            vals = [sr.get(c, 0) for c in last_3]
-            vals = [float(v) for v in vals if v and not pd.isna(v)]
-            avg_sale = sum(vals) / len(vals) if vals else 0
+            vals = [float(sr.get(c, 0) or 0) if not pd.isna(sr.get(c, 0)) else 0
+                    for c in last_3]
+            avg_sale = sum(vals) / n_months
             sku_sales_map[sr.get("vendor_item", "")] = avg_sale
 
     if sku_rows is not None and not sku_rows.empty:
