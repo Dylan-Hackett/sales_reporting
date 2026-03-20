@@ -112,9 +112,7 @@ def _fmt_qty(val):
         return ""
     if isinstance(val, str):
         return val
-    if math.isclose(val, round(val)):
-        return str(int(round(val)))
-    return f"{val:.2f}".rstrip("0").rstrip(".")
+    return str(int(round(val)))
 
 
 def _fmt_int(value):
