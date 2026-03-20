@@ -61,15 +61,25 @@ def view_sales_by_location_month(transactions_df, loc_map, out_dir):
     return pivot
 
 
+def _canonical_description(transactions_df):
+    """Pick one item_description per vendor_item (longest wins — most descriptive)."""
+    desc = transactions_df[["vendor_item", "item_description"]].drop_duplicates()
+    desc["_len"] = desc["item_description"].astype(str).str.len()
+    desc = desc.sort_values("_len", ascending=False).drop_duplicates(subset="vendor_item", keep="first")
+    return desc[["vendor_item", "item_description"]]
+
+
 def view_sales_by_sku_location_month(transactions_df, loc_map, out_dir):
     """View 2: Sales $ by SKU by location by month, pivoted wide."""
     agg = transactions_df.groupby(
-        ["location_code", "vendor_item", "item_description", "yyyymm"], as_index=False
+        ["location_code", "vendor_item", "yyyymm"], as_index=False
     )["total"].sum()
     pivot = agg.pivot_table(
-        index=["location_code", "vendor_item", "item_description"],
+        index=["location_code", "vendor_item"],
         columns="yyyymm", values="total", fill_value=0
     ).reset_index()
+    # Re-attach a single canonical description per vendor_item
+    pivot = pivot.merge(_canonical_description(transactions_df), on="vendor_item", how="left")
     pivot.columns.name = None
     pivot = _enrich(pivot, loc_map)
 
@@ -87,12 +97,13 @@ def view_sales_by_sku_location_month(transactions_df, loc_map, out_dir):
 def view_qty_by_sku_location_month(transactions_df, loc_map, out_dir):
     """View 3: Quantity by SKU by location by month, pivoted wide."""
     agg = transactions_df.groupby(
-        ["location_code", "vendor_item", "item_description", "yyyymm"], as_index=False
+        ["location_code", "vendor_item", "yyyymm"], as_index=False
     )["qty"].sum()
     pivot = agg.pivot_table(
-        index=["location_code", "vendor_item", "item_description"],
+        index=["location_code", "vendor_item"],
         columns="yyyymm", values="qty", fill_value=0
     ).reset_index()
+    pivot = pivot.merge(_canonical_description(transactions_df), on="vendor_item", how="left")
     pivot.columns.name = None
     pivot = _enrich(pivot, loc_map)
 
@@ -260,27 +271,29 @@ def top_skus_by_location(transactions_df, loc_map, out_dir, report_month, cfg):
 
     # Last month qty per location+SKU
     lm = df[df["yyyymm"] == report_month].groupby(
-        ["location_code", "vendor_item", "item_description"], as_index=False
+        ["location_code", "vendor_item"], as_index=False
     )["qty"].sum().rename(columns={"qty": "last_month_qty"})
 
     # 3-month qty
     m3 = df[df["yyyymm"].isin(last3_months)].groupby(
-        ["location_code", "vendor_item", "item_description"], as_index=False
+        ["location_code", "vendor_item"], as_index=False
     )["qty"].sum().rename(columns={"qty": "qty_3m_total"})
     m3["avg_qty_3m"] = m3["qty_3m_total"] / n3
 
     # 6-month qty
     m6 = df[df["yyyymm"].isin(last6_months)].groupby(
-        ["location_code", "vendor_item", "item_description"], as_index=False
+        ["location_code", "vendor_item"], as_index=False
     )["qty"].sum().rename(columns={"qty": "qty_6m_total"})
     m6["avg_qty_6m"] = m6["qty_6m_total"] / n6
 
     # Merge
-    top = m3.merge(lm, on=["location_code", "vendor_item", "item_description"], how="left")
+    top = m3.merge(lm, on=["location_code", "vendor_item"], how="left")
     top = top.merge(
-        m6[["location_code", "vendor_item", "item_description", "avg_qty_6m"]],
-        on=["location_code", "vendor_item", "item_description"], how="left"
+        m6[["location_code", "vendor_item", "avg_qty_6m"]],
+        on=["location_code", "vendor_item"], how="left"
     )
+    # Attach canonical description
+    top = top.merge(_canonical_description(df), on="vendor_item", how="left")
     top = top.fillna({"last_month_qty": 0, "avg_qty_6m": 0})
 
     # Rank by 3-month total, keep top N per location
